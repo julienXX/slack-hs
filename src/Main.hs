@@ -3,40 +3,35 @@ module Main where
 
 import System.Environment
 import Data.List
-import Network.HTTP.Simple
-import qualified Data.ByteString.Lazy.Char8 as L8
-import qualified Data.ByteString.Char8 as S8
+import Data.Text as T hiding (head)
+import Data.Text.Encoding
+import qualified Data.ByteString.Lazy.Char8 as BS (putStrLn)
+import Control.Lens
+import Data.Aeson.Lens
+import Network.Wreq
 
 apiUrl :: String
 apiUrl = "https://slack.com/api/"
 
-type Token = String
-type Channel = String
-type Message = String
+type Token = Text
+type Channel = Text
+type Message = Text
 
 main :: IO ()
 main = do
-  args <- getArgs
   token <- getEnv "SLACK_TOKEN"
-  -- postMessage (head args) token
-  listChannels token
+  args <- getArgs
+  -- postMessage "@julienxx" (pack $ head args) (pack token)
+  listChannels $ pack token
 
 listChannels :: Token -> IO()
 listChannels token = do
-  request' <- parseRequest ("POST " ++ apiUrl ++ "channels.list")
-  let request = setRequestQueryString [("token", Just (S8.pack token))]
-                $ request'
-  response <- httpLBS request
-
-  L8.putStrLn $ getResponseBody response
+  let requestUrl = apiUrl ++ "channels.list"
+  r <- post requestUrl ["token" := token]
+  BS.putStrLn $ r ^. responseBody
 
 postMessage :: Channel -> Message -> Token -> IO()
 postMessage channel message token = do
-  request' <- parseRequest ("POST " ++ apiUrl ++ "chat.postMessage")
-  let request = setRequestQueryString [("token", Just (S8.pack token)),
-                                       ("channel", Just (S8.pack channel)),
-                                       ("text", Just (S8.pack message))]
-                $ request'
-  response <- httpLBS request
-
-  L8.putStrLn $ getResponseBody response
+  let requestUrl = apiUrl ++ "chat.postMessage"
+  r <- post requestUrl ["token" := token, "channel" := channel, "text" := message, "as_user" := pack "true"]
+  BS.putStrLn $ r ^. responseBody
